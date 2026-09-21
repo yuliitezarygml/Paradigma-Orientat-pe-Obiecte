@@ -1,0 +1,16 @@
+# Скомпилированные файлы Java
+*.class
+bin/
+out/
+target/
+
+# Системные файлы macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Временные файлы
+*.tmp
+*.log
+*.swp
