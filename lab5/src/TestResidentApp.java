@@ -22,6 +22,7 @@ public class TestResidentApp {
         System.out.println("Запуск тестов Лабораторной работы 5 (Aplicație Rezident)");
         System.out.println("==================================================");
 
+        testIpService();
         testWeatherParsing();
         testCurrencyLogic();
         testSettingsManager();
@@ -114,5 +115,23 @@ public class TestResidentApp {
 
         hm.setEnabled(false);
         assertTrue("Горячие клавиши можно выключить", !hm.isEnabled());
+    }
+
+    // 6. Тестирование определения публичного IP (IpService)
+    private static void testIpService() {
+        System.out.println("\n0. Тестирование сервиса определения публичного IP (IpService):");
+        String mockJson = "{\"status\":\"success\",\"country\":\"Moldova\",\"city\":\"Chisinau\",\"lat\":47.0042,\"lon\":28.8574,\"query\":\"93.116.117.194\",\"isp\":\"MOLDTELECOM\"}";
+        IpService.IpInfo info = IpService.parseIpJson(mockJson, true);
+
+        assertTrue("Публичный IP распарсен верно", "93.116.117.194".equals(info.getIp()));
+        assertTrue("Город распарсен верно", "Chisinau".equals(info.getCity()));
+        assertTrue("Страна распарсена верно", "Moldova".equals(info.getCountry()));
+        assertTrue("ISP распарсен верно", "MOLDTELECOM".equals(info.getIsp()));
+        assertTrue("Широта (lat) распарсена", Math.abs(info.getLat() - 47.0042) < 0.001);
+        assertTrue("Долгота (lon) распарсена", Math.abs(info.getLon() - 28.8574) < 0.001);
+        assertTrue("Статус онлайн = true", info.isOnline());
+
+        IpService.IpInfo fallback = IpService.getFallbackIp();
+        assertTrue("Fallback IP содержит IP адрес", fallback.getIp() != null && !fallback.getIp().isEmpty());
     }
 }

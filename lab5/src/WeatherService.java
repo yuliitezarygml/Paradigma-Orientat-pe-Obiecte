@@ -10,8 +10,8 @@ import java.time.format.DateTimeFormatter;
 // Лабораторная работа 5 - пункт a
 public class WeatherService {
 
-    // Класс для хранения данных о погоде
     public static class WeatherData {
+        private final String city;
         private final double temperature;
         private final double windSpeed;
         private final int weatherCode;
@@ -20,7 +20,8 @@ public class WeatherService {
         private final boolean isOnline;
         private final String time;
 
-        public WeatherData(double temp, double wind, int code, String condition, String icon, boolean online) {
+        public WeatherData(String city, double temp, double wind, int code, String condition, String icon, boolean online) {
+            this.city = city;
             this.temperature = temp;
             this.windSpeed = wind;
             this.weatherCode = code;
@@ -30,6 +31,7 @@ public class WeatherService {
             this.time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss"));
         }
 
+        public String getCity() { return city; }
         public double getTemperature() { return temperature; }
         public double getWindSpeed() { return windSpeed; }
         public int getWeatherCode() { return weatherCode; }
@@ -40,22 +42,24 @@ public class WeatherService {
 
         @Override
         public String toString() {
-            return String.format("%.1f°C, %s (Vânt: %.1f km/h)", temperature, conditionText, windSpeed);
+            return String.format("%s: %+.1f°C, %s (Vânt: %.1f km/h)", city, temperature, conditionText, windSpeed);
         }
     }
 
-    // Координаты Кишинёва
-    private static final String API_URL = "https://api.open-meteo.com/v1/forecast?latitude=47.01&longitude=28.86&current_weather=true";
+    public WeatherData fetchWeather(double lat, double lon, String city) {
+        String urlString = String.format(
+            java.util.Locale.US,
+            "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current_weather=true",
+            lat, lon
+        );
 
-    // Получить текущую погоду
-    public WeatherData fetchWeather() {
         try {
-            URI uri = new URI(API_URL);
+            URI uri = new URI(urlString);
             URL url = uri.toURL();
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
-            conn.setConnectTimeout(4000);
-            conn.setReadTimeout(4000);
+            conn.setConnectTimeout(4500);
+            conn.setReadTimeout(4500);
             conn.setRequestProperty("User-Agent", "Mozilla/5.0");
 
             if (conn.getResponseCode() == 200) {
@@ -67,21 +71,24 @@ public class WeatherService {
                 }
                 reader.close();
 
-                return parseWeatherJson(json.toString(), true);
+                return parseWeatherJson(json.toString(), city, true);
             }
         } catch (Exception e) {
-            System.out.println("Нет связи с Open-Meteo, используется локальный режим: " + e.getMessage());
+            System.out.println("Нет связи с Open-Meteo, используется офлайн-режим: " + e.getMessage());
         }
 
-        // Офлайн-режим (если нет интернета)
-        return getFallbackWeather();
+        return getFallbackWeather(city);
     }
 
-    // Простой парсинг JSON без тяжелых сторонних библиотек (студенческий стиль)
-    public static WeatherData parseWeatherJson(String json, boolean online) {
-        double temp = extractNumber(json, "temperature");
-        double wind = extractNumber(json, "windspeed");
-        int code = (int) extractNumber(json, "weathercode");
+    // Парсинг блока "current_weather" в JSON
+    public static WeatherData parseWeatherJson(String json, String city, boolean online) {
+        // Ищем именно блок current_weather, чтобы не захватить current_weather_units
+        int cwIdx = json.indexOf("\"current_weather\":");
+        String targetBlock = (cwIdx != -1) ? json.substring(cwIdx) : json;
+
+        double temp = extractNumber(targetBlock, "temperature");
+        double wind = extractNumber(targetBlock, "windspeed");
+        int code = (int) extractNumber(targetBlock, "weathercode");
 
         String condition;
         String iconType;
@@ -103,26 +110,38 @@ public class WeatherService {
             iconType = "CLOUD";
         }
 
-        return new WeatherData(temp, wind, code, condition, iconType, online);
+        if (city == null || city.isEmpty()) city = "Chișinău";
+        return new WeatherData(city, temp, wind, code, condition, iconType, online);
     }
 
-    private static double extractNumber(String json, String key) {
+    private static double extractNumber(String text, String key) {
         try {
-            int idx = json.indexOf("\"" + key + "\":");
+            int idx = text.indexOf("\"" + key + "\":");
             if (idx == -1) return 0.0;
             int start = idx + key.length() + 3;
+            while (start < text.length() && (text.charAt(start) == ' ' || text.charAt(start) == ':')) start++;
             int end = start;
-            while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '.' || json.charAt(end) == '-')) {
+            while (end < text.length() && (Character.isDigit(text.charAt(end)) || text.charAt(end) == '.' || text.charAt(end) == '-')) {
                 end++;
             }
-            return Double.parseDouble(json.substring(start, end));
-        } catch (Exception e) {
-            return 0.0;
-        }
+            if (end > start) {
+                return Double.parseDouble(text.substring(start, end));
+            }
+        } catch (Exception ignored) {}
+        return 0.0;
     }
 
-    // Резервные данные при отсутствии связи
+    // Перегрузка для совместимости
+    public static WeatherData parseWeatherJson(String json, boolean online) {
+        return parseWeatherJson(json, "Chișinău", online);
+    }
+
+    public static WeatherData getFallbackWeather(String city) {
+        if (city == null || city.isEmpty()) city = "Chișinău";
+        return new WeatherData(city, 20.4, 7.8, 1, "Parțial înnorat (Offline)", "CLOUD", false);
+    }
+
     public static WeatherData getFallbackWeather() {
-        return new WeatherData(21.4, 11.2, 0, "Însorit (Offline)", "SUN", false);
+        return getFallbackWeather("Chișinău");
     }
 }

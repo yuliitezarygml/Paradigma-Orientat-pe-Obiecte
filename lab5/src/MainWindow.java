@@ -4,11 +4,12 @@ import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
-// Главное окно резидентного приложения (Meteo & Valută)
+// Главное окно резидентного приложения (Meteo & Valută с определением публичного IP)
 // Лабораторная работа 5
 public class MainWindow extends JFrame {
 
     private final SettingsManager settingsManager;
+    private final IpService ipService;
     private final WeatherService weatherService;
     private final CurrencyService currencyService;
     private final TrayManager trayManager;
@@ -18,6 +19,9 @@ public class MainWindow extends JFrame {
 
     // UI элементы
     private JLabel statusBadge;
+    private JLabel ipInfoLabel;
+
+    private JLabel weatherCardTitle;
     private JLabel tempLabel;
     private JLabel conditionLabel;
     private JLabel windLabel;
@@ -29,15 +33,15 @@ public class MainWindow extends JFrame {
 
     private JCheckBox autoRefreshCheck;
     private JComboBox<String> intervalCombo;
-    private JLabel lastUpdatedLabel;
 
     public MainWindow() {
-        setTitle("Meteo & Valută - Aplicație Rezidentă (Lab 5)");
-        setSize(640, 520);
+        setTitle("Monitor Meteo & Valută (IP Public) - Lab 5");
+        setSize(680, 550);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
         this.settingsManager = new SettingsManager();
+        this.ipService = new IpService();
         this.weatherService = new WeatherService();
         this.currencyService = new CurrencyService();
 
@@ -69,14 +73,17 @@ public class MainWindow extends JFrame {
 
     private void initUI() {
         JPanel root = new JPanel(new BorderLayout(10, 10));
-        root.setBorder(new EmptyBorder(12, 14, 12, 14));
+        root.setBorder(new EmptyBorder(12, 16, 12, 16));
         root.setBackground(new Color(245, 246, 248));
 
-        // --- ВЕРХНИЙ ЗАГОЛОВОК ---
-        JPanel header = new JPanel(new BorderLayout());
+        // --- ВЕРХНИЙ ЗАГОЛОВОК С ИНФОРМАЦИЕЙ О ПУБЛИЧНОМ IP ---
+        JPanel header = new JPanel(new BorderLayout(0, 4));
         header.setOpaque(false);
 
-        JLabel title = new JLabel("📡 Monitor Online: Meteo & Curs Valutar");
+        JPanel headerTop = new JPanel(new BorderLayout());
+        headerTop.setOpaque(false);
+
+        JLabel title = new JLabel("📡 Monitor: Meteo & Curs Valutar");
         title.setFont(new Font("Arial", Font.BOLD, 17));
         title.setForeground(new Color(25, 30, 40));
 
@@ -87,20 +94,30 @@ public class MainWindow extends JFrame {
         statusBadge.setForeground(new Color(20, 120, 20));
         statusBadge.setBorder(BorderFactory.createLineBorder(new Color(160, 210, 160), 1, true));
 
-        header.add(title, BorderLayout.WEST);
-        header.add(statusBadge, BorderLayout.EAST);
+        headerTop.add(title, BorderLayout.WEST);
+        headerTop.add(statusBadge, BorderLayout.EAST);
+
+        // Строка с публичным IP адресом и провайдером
+        ipInfoLabel = new JLabel("🌐 IP Public: Se identifică...");
+        ipInfoLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        ipInfoLabel.setForeground(new Color(80, 85, 95));
+
+        header.add(headerTop, BorderLayout.NORTH);
+        header.add(ipInfoLabel, BorderLayout.SOUTH);
 
         // --- ЦЕНТРАЛЬНЫЕ КАРТОЧКИ ---
         JPanel cardsPanel = new JPanel(new GridLayout(2, 1, 10, 10));
         cardsPanel.setOpaque(false);
 
         // Карточка 1: Погода
-        JPanel weatherCard = createCard("⛅ Vremea în Chișinău (Open-Meteo API)");
+        JPanel weatherCard = createCard("⛅ Vremea locală (Open-Meteo API)");
+        weatherCardTitle = (JLabel) weatherCard.getComponent(0);
+
         JPanel weatherContent = new JPanel(new GridLayout(2, 2, 8, 6));
         weatherContent.setOpaque(false);
 
         tempLabel = new JLabel("+0.0°C");
-        tempLabel.setFont(new Font("Arial", Font.BOLD, 26));
+        tempLabel.setFont(new Font("Arial", Font.BOLD, 28));
         tempLabel.setForeground(new Color(26, 115, 232));
 
         conditionLabel = new JLabel("Stare: Se încarcă...");
@@ -153,7 +170,7 @@ public class MainWindow extends JFrame {
         JPanel bottomPanel = new JPanel(new BorderLayout(8, 8));
         bottomPanel.setOpaque(false);
 
-        // Панель настроек авто-обновления (требование пункта c)
+        // Панель настроек авто-обновления
         JPanel settingsBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         settingsBar.setBackground(Color.WHITE);
         settingsBar.setBorder(BorderFactory.createLineBorder(new Color(220, 220, 225), 1, true));
@@ -232,7 +249,6 @@ public class MainWindow extends JFrame {
         return card;
     }
 
-    // Инициализация таймера повторного опроса интернета (пункт c)
     private void initTimer() {
         int delayMs = settingsManager.getRefreshIntervalSeconds() * 1000;
         refreshTimer = new Timer(delayMs, e -> refreshData());
@@ -241,13 +257,30 @@ public class MainWindow extends JFrame {
         }
     }
 
-    // Обновление данных из интернета (в фоновом потоке, чтобы GUI не зависал)
+    // Обновление данных из интернета (в фоновом потоке)
     public void refreshData() {
         new Thread(() -> {
-            WeatherService.WeatherData weather = weatherService.fetchWeather();
+            // 1. Определяем публичный IP и город пользователя
+            IpService.IpInfo ipInfo = ipService.fetchPublicIpInfo();
+
+            // 2. Получаем точную погоду по координатам публичного IP
+            WeatherService.WeatherData weather = weatherService.fetchWeather(
+                ipInfo.getLat(),
+                ipInfo.getLon(),
+                ipInfo.getCity() + ", " + ipInfo.getCountry()
+            );
+
+            // 3. Получаем курсы валют
             CurrencyService.CurrencyData currency = currencyService.fetchRates();
 
             SwingUtilities.invokeLater(() -> {
+                // Обновляем информацию о публичном IP
+                String ispText = (ipInfo.getIsp() != null && !ipInfo.getIsp().isEmpty()) ? (" | ISP: " + ipInfo.getIsp()) : "";
+                ipInfoLabel.setText(String.format("🌐 IP Public: %s (%s, %s)%s", ipInfo.getIp(), ipInfo.getCity(), ipInfo.getCountry(), ispText));
+
+                // Обновляем заголовок карточки погоды с определенным городом
+                weatherCardTitle.setText(String.format("⛅ Vremea: %s, %s (detectat prin IP)", ipInfo.getCity(), ipInfo.getCountry()));
+
                 // Обновляем виджет погоды
                 tempLabel.setText(String.format("%+.1f°C", weather.getTemperature()));
                 conditionLabel.setText("Stare: " + weather.getConditionText());
@@ -263,7 +296,7 @@ public class MainWindow extends JFrame {
                 currencyTimeLabel.setText("Actualizat: " + currency.getTime());
 
                 // Обновляем статус сети
-                boolean isOnline = weather.isOnline() && currency.isOnline();
+                boolean isOnline = ipInfo.isOnline() && weather.isOnline();
                 if (isOnline) {
                     statusBadge.setText(" 🟢 Online ");
                     statusBadge.setBackground(new Color(220, 245, 220));
@@ -274,7 +307,7 @@ public class MainWindow extends JFrame {
                     statusBadge.setForeground(new Color(150, 110, 20));
                 }
 
-                // Обновляем иконку и подсказку в System Tray (пункт d)
+                // Обновляем иконку и подсказку в System Tray
                 trayManager.updateTray(weather, currency);
             });
         }).start();
@@ -287,7 +320,6 @@ public class MainWindow extends JFrame {
             refreshTimer.setDelay(seconds * 1000);
             refreshTimer.restart();
         }
-        System.out.println("Интервал обновления изменен на: " + seconds + " сек.");
     }
 
     private int getSecondsFromCombo() {
@@ -308,10 +340,9 @@ public class MainWindow extends JFrame {
         else intervalCombo.setSelectedIndex(3);
     }
 
-    // Сворачивание в системный трей (пункт b)
     public void hideToTray() {
         setVisible(false);
-        trayManager.showNotification("Meteo & Valută", "Aplicația a fost ascunsă în System Tray.");
+        trayManager.showNotification("Meteo & Valută", "Aplicația rulează în fundal în System Tray.");
     }
 
     public void showWindow() {
