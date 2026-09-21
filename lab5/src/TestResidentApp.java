@@ -63,14 +63,32 @@ public class TestResidentApp {
 
     // 2. Тестирование логики валют (пункт a)
     private static void testCurrencyLogic() {
-        System.out.println("\n2. Тестирование курсов валют (CurrencyService):");
+        System.out.println("\n2. Тестирование курсов валют curs.md (CurrencyService):");
         CurrencyService cs = new CurrencyService();
         CurrencyService.CurrencyData data = cs.getFallbackRates();
 
         assertTrue("Курс EUR больше 0", data.getEur() > 0);
         assertTrue("Курс USD больше 0", data.getUsd() > 0);
+        assertTrue("Курс RON больше 0", data.getRon() > 0);
+        assertTrue("Рыночный курс покупки EUR больше 0", data.getEurBuy() > 0);
+        assertTrue("Рыночный курс продажи EUR больше 0", data.getEurSell() > 0);
+        assertTrue("Рыночный курс покупки USD больше 0", data.getUsdBuy() > 0);
+        assertTrue("Рыночный курс продажи USD больше 0", data.getUsdSell() > 0);
         assertTrue("Тренд EUR определен", data.getEurTrend() != null);
         assertTrue("Тренд USD определен", data.getUsdTrend() != null);
+
+        // Проверка парсинга HTML страницы curs.md
+        String mockHtml = "<table><tr><td class=\"currency\">EUR</td><td class=\"rate\">20,1211 Lei</td></tr>"
+                + "<tr><td class=\"currency\">USD</td><td class=\"rate\">17,5393 Lei</td></tr></table>"
+                + "dataTable.addRows([[new Date(2026, 8, 21), 20.1211, 20.02, 20.18]]); document.getElementById(\"EUR_chart\");"
+                + "dataTable.addRows([[new Date(2026, 8, 21), 17.5393, 17.40, 17.59]]); document.getElementById(\"USD_chart\");";
+        CurrencyService.CurrencyData parsed = cs.parseCursMdHtml(mockHtml, true);
+        assertTrue("Парсинг официального EUR с curs.md (20.1211)", Math.abs(parsed.getEur() - 20.1211) < 0.001);
+        assertTrue("Парсинг официального USD с curs.md (17.5393)", Math.abs(parsed.getUsd() - 17.5393) < 0.001);
+        assertTrue("Парсинг рыночной покупки EUR (20.02)", Math.abs(parsed.getEurBuy() - 20.02) < 0.01);
+        assertTrue("Парсинг рыночной продажи EUR (20.18)", Math.abs(parsed.getEurSell() - 20.18) < 0.01);
+        assertTrue("Парсинг рыночной покупки USD (17.40)", Math.abs(parsed.getUsdBuy() - 17.40) < 0.01);
+        assertTrue("Парсинг рыночной продажи USD (17.59)", Math.abs(parsed.getUsdSell() - 17.59) < 0.01);
     }
 
     // 3. Тестирование настроек и таймера (пункт c)

@@ -29,14 +29,15 @@ public class MainWindow extends JFrame {
 
     private JLabel eurLabel;
     private JLabel usdLabel;
+    private JLabel ronLabel;
     private JLabel currencyTimeLabel;
 
     private JCheckBox autoRefreshCheck;
     private JComboBox<String> intervalCombo;
 
     public MainWindow() {
-        setTitle("Monitor Meteo & Valută (IP Public) - Lab 5");
-        setSize(680, 550);
+        setTitle("Monitor Meteo & Valută (curs.md / IP Public) - Lab 5");
+        setSize(740, 590);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
@@ -136,31 +137,41 @@ public class MainWindow extends JFrame {
         weatherContent.add(weatherTimeLabel);
         weatherCard.add(weatherContent, BorderLayout.CENTER);
 
-        // Карточка 2: Курсы валют
-        JPanel currencyCard = createCard("💶 Curs Valutar Oficial (Banca Națională / MDL)");
-        JPanel currencyContent = new JPanel(new GridLayout(2, 2, 8, 6));
+        // Карточка 2: Курсы валют (curs.md)
+        JPanel currencyCard = createCard("💶 Curs Valutar Moldova (curs.md — Oficial BNM & Piața Bancară)");
+        JPanel currencyContent = new JPanel(new GridLayout(4, 1, 4, 5));
         currencyContent.setOpaque(false);
 
-        eurLabel = new JLabel("💶 EUR: 0.00 MDL");
-        eurLabel.setFont(new Font("Arial", Font.BOLD, 15));
-        eurLabel.setForeground(new Color(40, 40, 40));
+        eurLabel = new JLabel("💶 EUR: Oficial 0.00 MDL | Piață: Cump. 0.00 / Vânz. 0.00");
+        eurLabel.setFont(new Font("Arial", Font.BOLD, 13));
+        eurLabel.setForeground(new Color(35, 40, 50));
 
-        usdLabel = new JLabel("💵 USD: 0.00 MDL");
-        usdLabel.setFont(new Font("Arial", Font.BOLD, 15));
-        usdLabel.setForeground(new Color(40, 40, 40));
+        usdLabel = new JLabel("💵 USD: Oficial 0.00 MDL | Piață: Cump. 0.00 / Vânz. 0.00");
+        usdLabel.setFont(new Font("Arial", Font.BOLD, 13));
+        usdLabel.setForeground(new Color(35, 40, 50));
 
-        JLabel infoBNM = new JLabel("Raportat la leul moldovenesc (MDL)");
-        infoBNM.setFont(new Font("Arial", Font.PLAIN, 12));
-        infoBNM.setForeground(Color.DARK_GRAY);
+        ronLabel = new JLabel("🪙 RON: Oficial 0.00 MDL | Piață: Cump. 0.00 / Vânz. 0.00");
+        ronLabel.setFont(new Font("Arial", Font.BOLD, 13));
+        ronLabel.setForeground(new Color(35, 40, 50));
+
+        JPanel subRow = new JPanel(new BorderLayout());
+        subRow.setOpaque(false);
+
+        JLabel sourceLbl = new JLabel("📊 Sursa: curs.md (Banca Națională & Bănci Comerciale)");
+        sourceLbl.setFont(new Font("Arial", Font.PLAIN, 11));
+        sourceLbl.setForeground(Color.DARK_GRAY);
 
         currencyTimeLabel = new JLabel("Actualizat: --:--:--");
         currencyTimeLabel.setFont(new Font("Arial", Font.ITALIC, 11));
         currencyTimeLabel.setForeground(Color.GRAY);
 
+        subRow.add(sourceLbl, BorderLayout.WEST);
+        subRow.add(currencyTimeLabel, BorderLayout.EAST);
+
         currencyContent.add(eurLabel);
         currencyContent.add(usdLabel);
-        currencyContent.add(infoBNM);
-        currencyContent.add(currencyTimeLabel);
+        currencyContent.add(ronLabel);
+        currencyContent.add(subRow);
         currencyCard.add(currencyContent, BorderLayout.CENTER);
 
         cardsPanel.add(weatherCard);
@@ -287,13 +298,17 @@ public class MainWindow extends JFrame {
                 windLabel.setText(String.format("Vânt: %.1f km/h", weather.getWindSpeed()));
                 weatherTimeLabel.setText("Ora: " + weather.getTime());
 
-                // Обновляем виджет валют
+                // Обновляем виджет валют (curs.md: BNM + Piață)
                 String eArrow = currency.getEurTrend() == CurrencyService.Trend.UP ? "🟢 ↗" : (currency.getEurTrend() == CurrencyService.Trend.DOWN ? "🔴 ↘" : "⚪");
                 String uArrow = currency.getUsdTrend() == CurrencyService.Trend.UP ? "🟢 ↗" : (currency.getUsdTrend() == CurrencyService.Trend.DOWN ? "🔴 ↘" : "⚪");
 
-                eurLabel.setText(String.format("💶 EUR: %.2f MDL  %s", currency.getEur(), eArrow));
-                usdLabel.setText(String.format("💵 USD: %.2f MDL  %s", currency.getUsd(), uArrow));
-                currencyTimeLabel.setText("Actualizat: " + currency.getTime());
+                eurLabel.setText(String.format("💶 EUR: Oficial %.4f MDL %s | Piață: Cump. %.2f / Vânz. %.2f MDL",
+                        currency.getEur(), eArrow, currency.getEurBuy(), currency.getEurSell()));
+                usdLabel.setText(String.format("💵 USD: Oficial %.4f MDL %s | Piață: Cump. %.2f / Vânz. %.2f MDL",
+                        currency.getUsd(), uArrow, currency.getUsdBuy(), currency.getUsdSell()));
+                ronLabel.setText(String.format("🪙 RON: Oficial %.4f MDL | Piață: Cump. %.2f / Vânz. %.2f MDL",
+                        currency.getRon(), currency.getRonBuy(), currency.getRonSell()));
+                currencyTimeLabel.setText("curs.md: " + currency.getTime());
 
                 // Обновляем статус сети
                 boolean isOnline = ipInfo.isOnline() && weather.isOnline();
